@@ -1,6 +1,7 @@
 from flask import Flask, jsonify, render_template
 import random
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 app = Flask(__name__)
 
@@ -13,12 +14,15 @@ stocks_data = [
     {"symbol": "AMZN", "opening_price": random.uniform(1500, 3500)}
 ]
 
+# Create a ThreadPoolExecutor for parallel price updates
+executor = ThreadPoolExecutor(max_workers=5)
+
 # Function to update current prices
 def update_current_prices():
     for stock in stocks_data:
         # Generate a random current price based on the opening price
         change = random.uniform(-5, 5)  # Change can be -5 to 5
-        stock["current_price"] = stock["opening_price"] + change  # Allow price to go below opening price
+        stock["current_price"] = round(stock["opening_price"] + change, 2)  # Allow price to go below opening price
         stock["profit"] = round(stock["current_price"] - stock["opening_price"], 2)
         stock["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
 
@@ -28,8 +32,9 @@ def index():
 
 @app.route('/api/stocks')
 def get_stocks():
-    update_current_prices()  # Update prices every request
+    # Run the update_current_prices function in a separate thread
+    executor.submit(update_current_prices)
     return jsonify(stocks_data)
 
 if __name__ == '__main__':
-    app.run(debug=True,port=3000)
+    app.run(debug=True, port=3000)
